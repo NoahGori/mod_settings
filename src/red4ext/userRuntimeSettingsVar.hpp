@@ -4,8 +4,8 @@
 // The upstream SDK does not ship these non-generated game type definitions.
 
 #include "RED4ext/CName.hpp"
-#include "RED4ext/DynArray.hpp"
 #include <RED4ext/Common.hpp>
+#include <RED4ext/Containers/DynArray.hpp>
 #include <stdint.h>
 
 namespace RED4ext {
@@ -53,7 +53,6 @@ enum class EConfigVarImportPolicy : char {
 #pragma pack(push, 1)
 struct RuntimeSettingsVar {
   RuntimeSettingsVar() {
-    displayNameKeys = RED4ext::DynArray<RED4ext::CName>(new RED4ext::Memory::DefaultAllocator());
     unk44 = 0xFF;
     unk45 = 0xFF;
     memset(&bitfield, 0, sizeof(bitfield));
@@ -61,13 +60,10 @@ struct RuntimeSettingsVar {
 
   virtual RED4ext::Memory::IAllocator *__fastcall GetAllocator(RuntimeSettingsVar *) // 00
   {
-    return new Memory::DefaultAllocator();
+    return nullptr;
   }
   virtual RuntimeSettingsVar *__fastcall Deinitialize(bool shouldFree) // 08
   {
-    if (displayNameKeys.capacity) {
-      displayNameKeys.Clear();
-    }
     return this;
   }
   virtual bool __fastcall WasModifiedSinceLastSave() = 0;     // 10
