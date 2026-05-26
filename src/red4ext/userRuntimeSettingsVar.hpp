@@ -58,7 +58,7 @@ struct RuntimeSettingsVar {
     memset(&bitfield, 0, sizeof(bitfield));
   }
 
-  virtual RED4ext::Memory::IAllocator *__fastcall GetAllocator(RuntimeSettingsVar *) // 00
+  virtual Memory::IAllocator *__fastcall GetAllocator(RuntimeSettingsVar *) // 00
   {
     return nullptr;
   }
