@@ -1,9 +1,9 @@
 #pragma once
 
+#include "ScriptDefinitions/ScriptDefinitions.hpp"
 #include "Variable.hpp"
 #include <RED4ext/InstanceType.hpp>
 #include <RED4ext/RTTITypes.hpp>
-#include "ScriptDefinitions/ScriptDefinitions.hpp"
 #include <RED4ext/Scripting/Natives/Generated/EInputKey.hpp>
 
 namespace ModSettings {
@@ -23,30 +23,17 @@ struct ScriptPropertyFlags {
   uint16_t isBrowsable : 1;
 };
 
-inline void trim(std::string& s) {
-  s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
-    return !std::isspace(ch);
-  }));
-  s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
-    return !std::isspace(ch);
-  }).base(), s.end());
+inline void trim(std::string &s) {
+  s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
+  s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
 }
 
 struct ScriptProperty : ScriptDefinition {
-  bool IsValid() const {
-    return this->runtimeProperties.Get("ModSettings.mod");
-  }
+  bool IsValid() const { return this->runtimeProperties.Get("ModSettings.mod"); }
 
-  RED4ext::CBaseRTTIType * GetType() const {
-    return RED4ext::CRTTISystem::Get()->GetType(this->type->name);
-  }
+  RED4ext::rtti::IType *GetType() const { return RED4ext::CRTTISystem::Get()->GetType(this->type->name); }
 
-  void FromString(RED4ext::ScriptInstance pointer, const RED4ext::CString& str) const {
-    RED4ext::RawBuffer buffer;
-    buffer.data = (void*)str.c_str();
-    buffer.size = str.Length();
-    this->GetType()->FromString(pointer, buffer);
-  }
+  void FromString(void *pointer, const RED4ext::CString &str) const { this->GetType()->FromString(pointer, str); }
 
   // ReadProperty(CName)
 
@@ -72,10 +59,7 @@ struct ScriptProperty : ScriptDefinition {
     auto str = this->runtimeProperties.Get(name);
     if (str) {
       uint32_t value;
-      RED4ext::RawBuffer buffer;
-      buffer.data = (void*)str->c_str();
-      buffer.size = str->length;
-      RED4ext::CRTTISystem::Get()->GetType("Uint32")->FromString(&value, buffer);
+      RED4ext::CRTTISystem::Get()->GetType("Uint32")->FromString(&value, *str);
       return value;
     } else {
       return 0;
@@ -86,18 +70,15 @@ struct ScriptProperty : ScriptDefinition {
     auto str = this->runtimeProperties.Get(name);
     if (str) {
       int32_t value;
-      RED4ext::RawBuffer buffer;
-      buffer.data = (void*)str->c_str();
-      buffer.size = str->length;
-      RED4ext::CRTTISystem::Get()->GetType("Int32")->FromString(&value, buffer);
+      RED4ext::CRTTISystem::Get()->GetType("Int32")->FromString(&value, *str);
       return value;
     } else {
       return 0;
     }
   }
 
-  ModSettingDependency* ReadDependency(const RED4ext::CName scriptClass) {
-    auto dependency = (ModSettingDependency *)calloc(sizeof(ModSettingDependency), sizeof(char*));
+  ModSettingDependency *ReadDependency(const RED4ext::CName scriptClass) {
+    auto dependency = (ModSettingDependency *)calloc(sizeof(ModSettingDependency), sizeof(char *));
     auto str = this->runtimeProperties.Get("ModSettings.dependency");
     if (str) {
       std::string depends(str->c_str());
@@ -117,7 +98,7 @@ struct ScriptProperty : ScriptDefinition {
         }
         if (period != std::string::npos) {
           auto className = depends.substr(0, period);
-          auto propertyName = depends.substr(period+1, equals);
+          auto propertyName = depends.substr(period + 1, equals);
           trim(className);
           trim(propertyName);
           dependency->propertyName = RED4ext::CNamePool::Add(propertyName.c_str());
@@ -143,20 +124,14 @@ struct ScriptProperty : ScriptDefinition {
   template <> void ReadProperty<uint32_t>(const RED4ext::CName &name, uint32_t *pointer) const {
     auto str = this->runtimeProperties.Get(name);
     if (str && pointer) {
-      RED4ext::RawBuffer buffer;
-      buffer.data = (void*)str->c_str();
-      buffer.size = str->length;
-      RED4ext::CRTTISystem::Get()->GetType("Uint32")->FromString(pointer, buffer);
+      RED4ext::CRTTISystem::Get()->GetType("Uint32")->FromString(pointer, *str);
     }
   }
 
   template <> void ReadProperty<int32_t>(const RED4ext::CName &name, int32_t *pointer) const {
     auto str = this->runtimeProperties.Get(name);
     if (str && pointer) {
-      RED4ext::RawBuffer buffer;
-      buffer.data = (void*)str->c_str();
-      buffer.size = str->length;
-      RED4ext::CRTTISystem::Get()->GetType("Int32")->FromString(pointer, buffer);
+      RED4ext::CRTTISystem::Get()->GetType("Int32")->FromString(pointer, *str);
     }
   }
 
@@ -174,10 +149,7 @@ struct ScriptProperty : ScriptDefinition {
   template <> void ReadProperty<float>(const RED4ext::CName &name, float *pointer) const {
     auto str = this->runtimeProperties.Get(name);
     if (str && pointer) {
-      RED4ext::RawBuffer buffer;
-      buffer.data = (void*)str->c_str();
-      buffer.size = str->length;
-      RED4ext::CRTTISystem::Get()->GetType("Float")->FromString(pointer, buffer);
+      RED4ext::CRTTISystem::Get()->GetType("Float")->FromString(pointer, *str);
     }
   }
 
@@ -195,7 +167,7 @@ struct ScriptProperty : ScriptDefinition {
     }
   }
 
-  template <> void ReadProperty<char *>(const RED4ext::CName &name, char ** pointer) const {
+  template <> void ReadProperty<char *>(const RED4ext::CName &name, char **pointer) const {
     auto str = this->runtimeProperties.Get(name);
     if (str && pointer) {
       std::strcpy(*pointer, str->c_str());
@@ -214,7 +186,8 @@ struct ScriptProperty : ScriptDefinition {
   }
 
   template <>
-  void ReadProperty<RED4ext::CName>(const RED4ext::CName &name, RED4ext::CName *pointer, const RED4ext::CName fallback) const {
+  void ReadProperty<RED4ext::CName>(const RED4ext::CName &name, RED4ext::CName *pointer,
+                                    const RED4ext::CName fallback) const {
     auto str = this->runtimeProperties.Get(name);
     if (str && pointer) {
       *pointer = RED4ext::CNamePool::Add(str->c_str());
@@ -223,8 +196,8 @@ struct ScriptProperty : ScriptDefinition {
     }
   }
 
-  void ReadDefaultValue(RED4ext::ScriptInstance pointer) const {
-    if (this->defaultValues.size) {
+  void ReadDefaultValue(void *pointer) const {
+    if (this->defaultValues.Size()) {
       this->FromString(pointer, this->defaultValues[0]);
     }
   }
@@ -244,4 +217,4 @@ struct ScriptProperty : ScriptDefinition {
 RED4EXT_ASSERT_SIZE(ScriptProperty, 0x98);
 RED4EXT_ASSERT_OFFSET(ScriptProperty, runtimeProperties, 0x60);
 
-}
+} // namespace ModSettings

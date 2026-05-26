@@ -11,7 +11,7 @@
 // namespace ModSettings {
 
 struct IModConfigVar : RED4ext::IScriptable {
-  virtual void SetRuntime(ModSettings::IRuntimeVariable * runtime) = 0;
+  virtual void SetRuntime(ModSettings::IRuntimeVariable *runtime) = 0;
 };
 
 template <typename T> struct ModConfigVar : IModConfigVar {
@@ -19,9 +19,9 @@ public:
   T GetValue() { return this->runtimeVar->requestedValue; }
   void SetValue(T value) { this->runtimeVar->SetRequestedValue(&value); }
   T GetDefaultValue() { return this->runtimeVar->defaultValue; }
-  
-  inline virtual void SetRuntime(ModSettings::IRuntimeVariable * runtime) override {
-    runtimeVar = reinterpret_cast<ModSettings::RuntimeVariable<T>*>(runtime);
+
+  inline virtual void SetRuntime(ModSettings::IRuntimeVariable *runtime) override {
+    runtimeVar = reinterpret_cast<ModSettings::RuntimeVariable<T> *>(runtime);
   }
 
   ModSettings::RuntimeVariable<T> *runtimeVar; // 40
@@ -37,11 +37,11 @@ template <typename T> struct ModConfigVarRange : IModConfigVar {
   T GetMinValue() { return this->runtimeVar->minValue; }
   T GetMaxValue() { return this->runtimeVar->maxValue; }
   T GetStepValue() { return this->runtimeVar->stepValue; }
-  
-  inline virtual void SetRuntime(ModSettings::IRuntimeVariable * runtime) override {
-    runtimeVar = reinterpret_cast<ModSettings::RuntimeVariableRange<T>*>(runtime);
+
+  inline virtual void SetRuntime(ModSettings::IRuntimeVariable *runtime) override {
+    runtimeVar = reinterpret_cast<ModSettings::RuntimeVariableRange<T> *>(runtime);
   }
-  
+
   ModSettings::RuntimeVariableRange<T> *runtimeVar; // 40
 
   RTTI_IMPL_TYPEINFO(ModConfigVarRange);
@@ -92,14 +92,16 @@ RTTI_DEFINE_CLASS(ModConfigVarRange<int32_t>, "ModConfigVarInt32", {
 struct ModConfigVarEnum : IModConfigVar {
   int32_t GetValueFor(int32_t index) {
     auto varEnum = reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar);
-    if (varEnum->values.size > index) {
+    if ((int32_t)varEnum->values.Size() > index) {
       return varEnum->values[index];
     } else {
       return 0;
     }
   }
 
-  int32_t GetValue() { return GetValueFor(reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar)->requestedValue); }
+  int32_t GetValue() {
+    return GetValueFor(reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar)->requestedValue);
+  }
 
   int32_t GetDefaultValue() {
     return GetValueFor(reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar)->defaultValue);
@@ -118,7 +120,7 @@ struct ModConfigVarEnum : IModConfigVar {
     auto varEnum = reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar);
     auto values = RED4ext::DynArray<int32_t>(new RED4ext::Memory::DefaultAllocator());
     int32_t index = -1;
-    for (int i = 0; i < varEnum->values.size; i++) {
+    for (int i = 0; i < (int)varEnum->values.Size(); i++) {
       if (varEnum->values[i] == value) {
         index = i;
       }
@@ -128,21 +130,25 @@ struct ModConfigVarEnum : IModConfigVar {
 
   int32_t GetIndex() { return reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar)->requestedValue; }
 
-  int32_t GetDefaultIndex() { return reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar)->defaultValue; }
+  int32_t GetDefaultIndex() {
+    return reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar)->defaultValue;
+  }
 
-  void SetIndex(int32_t index) { reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar)->SetRequestedValue(&index); }
+  void SetIndex(int32_t index) {
+    reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar)->SetRequestedValue(&index);
+  }
 
   RED4ext::CName GetDisplayValue(int32_t index) {
     auto varEnum = reinterpret_cast<ModSettings::RuntimeVariableEnum *>(this->runtimeVar);
-    if (varEnum->displayValues.size > index && index > -1) {
+    if ((int32_t)varEnum->displayValues.Size() > index && index > -1) {
       return varEnum->displayValues[index];
     } else {
       return "None";
     }
   }
 
-  inline virtual void SetRuntime(ModSettings::IRuntimeVariable * runtime) override {
-    runtimeVar = reinterpret_cast<ModSettings::RuntimeVariableEnum*>(runtime);
+  inline virtual void SetRuntime(ModSettings::IRuntimeVariable *runtime) override {
+    runtimeVar = reinterpret_cast<ModSettings::RuntimeVariableEnum *>(runtime);
   }
 
   ModSettings::RuntimeVariableEnum *runtimeVar; // 40

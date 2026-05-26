@@ -5,52 +5,39 @@
 
 #include <RED4ext/RTTISystem.hpp>
 
-namespace Engine
-{
-template<typename T>
-requires std::is_enum_v<T>
-class RTTIEnumSeq : RED4ext::CEnum, detail::TypeDescriptor<T>
-{
+namespace Engine {
+template <typename T>
+  requires std::is_enum_v<T>
+class RTTIEnumSeq : RED4ext::CEnum, detail::TypeDescriptor<T> {
 public:
-    RTTIEnumSeq() : CEnum(0ull, sizeof(T), {})
-    {
-    }
+  RTTIEnumSeq() : CEnum(0ull, sizeof(T), {}) {}
 
-    void SetName(const char* aName)
-    {
-        RED4ext::CEnum::name = RED4ext::CNamePool::Add(aName);
-    }
+  void SetName(const char *aName) { RED4ext::CEnum::name = RED4ext::CNamePool::Add(aName); }
 
-    void SetFlags(const RED4ext::CEnum::Flags& aFlags)
-    {
-        RED4ext::CEnum::flags = aFlags;
-    }
+  void SetFlags(const RED4ext::CEnum::Flags &aFlags) { RED4ext::CEnum::flags = aFlags; }
 
-    inline static void Register()
-    {
-        RED4ext::RTTIRegistrator::Add(&OnRegisterRTTI, &OnPostRegisterRTTI);
-    }
+  inline static void Register() {
+    RED4ext::CRTTISystem::Get()->AddRegisterCallback(&OnRegisterRTTI);
+    RED4ext::CRTTISystem::Get()->AddPostRegisterCallback(&OnPostRegisterRTTI);
+  }
 
 private:
-    static void OnRegisterRTTI()
-    {
-        auto* type = new RTTIEnumSeq<T>();
+  static void OnRegisterRTTI() {
+    auto *type = new RTTIEnumSeq<T>();
 
-        // T::OnRegister();
+    // T::OnRegister();
 
-        if (type->name.IsNone())
-            type->SetName(detail::ExtractShortTypeName<T>());
+    if (type->name.IsNone())
+      type->SetName(detail::ExtractShortTypeName<T>());
 
-        auto* rtti = RED4ext::CRTTISystem::Get();
-        rtti->RegisterType(type);
+    auto *rtti = RED4ext::CRTTISystem::Get();
+    rtti->RegisterType(type);
 
-        detail::TypeDescriptor<T>::s_type = type;
-    }
+    detail::TypeDescriptor<T>::s_type = type;
+  }
 
-    static void OnPostRegisterRTTI()
-    {
-    }
+  static void OnPostRegisterRTTI() {}
 
-    inline static RTTIRegistrar s_registrar{ &OnRegisterRTTI, &OnPostRegisterRTTI }; // NOLINT(cert-err58-cpp)
+  inline static RTTIRegistrar s_registrar{&OnRegisterRTTI, &OnPostRegisterRTTI}; // NOLINT(cert-err58-cpp)
 };
-}
+} // namespace Engine

@@ -51,7 +51,7 @@ struct ScriptDefinition {
 };
 
 struct ScriptType : ScriptDefinition {
-  RED4ext::CBaseRTTIType *rttiType;
+  RED4ext::rtti::IType *rttiType;
   ScriptClass *innerType;
   uint32_t unk28;
   EScriptType type;

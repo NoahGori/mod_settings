@@ -1,3 +1,4 @@
+#include "ModSettings.hpp"
 #include "INIReader.h"
 #include "ModConfigVar.hpp"
 #include "Red/TypeInfo/Macros/Definition.hpp"
@@ -6,10 +7,10 @@
 #include "ScriptDefinitions/ScriptDefinitions.hpp"
 #include "Scripting/RTTIRegistrar.hpp"
 #include "Utils.hpp"
-#include "stdafx.hpp"
-#include <ModSettings/ModSettings.hpp>
-#include "ModSettings.hpp"
 #include "Variable.hpp"
+#include "stdafx.hpp"
+#include <Hooks/ApplyOverrides.hpp>
+#include <ModSettings/ModSettings.hpp>
 #include <RED4ext/Scripting/Natives/Generated/user/SettingsVar.hpp>
 #include <RED4ext/Scripting/Natives/Generated/user/SettingsVarBool.hpp>
 #include <RED4ext/Scripting/Natives/Generated/user/SettingsVarFloat.hpp>
@@ -17,7 +18,6 @@
 #include <RED4ext/Scripting/Natives/Generated/user/SettingsVarListInt.hpp>
 #include <RedLib.hpp>
 #include <iostream>
-#include <Hooks/ApplyOverrides.hpp>
 
 namespace ModSettings {
 
@@ -27,29 +27,29 @@ const std::filesystem::path configPath = Utils::GetRootDir() / "red4ext" / "plug
 
 ModSettings modSettings = ModSettings();
 
-Manager * gameinputManager = nullptr;
+Manager *gameinputManager = nullptr;
 
 ModSettings::ModSettings() {}
 
 Handle<ModSettings> ModSettings::GetInstance() { return Handle<ModSettings>(&modSettings); }
 
-void ModSettings::ClearVariables() {
-  modSettings.mods.clear();
-}
+void ModSettings::ClearVariables() { modSettings.mods.clear(); }
 
 std::shared_mutex queuedVariables_lock;
-std::vector<Variable*> queuedVariables;
+std::vector<Variable *> queuedVariables;
 
-void AddVariable(Variable* variable) {
+void AddVariable(Variable *variable) {
   std::unique_lock _(queuedVariables_lock);
   queuedVariables.emplace_back(variable);
 }
 
 void __fastcall ModSettings::ProcessScriptData(const ScriptData *scriptData) {
   auto self = ModSettings::GetInstance();
+  sdk->logger->Info(pluginHandle, "ProcessScriptData: entry");
   if (scriptData) {
     ModSettings::ReadFromFile();
     ModSettings::ClearVariables();
+    sdk->logger->Info(pluginHandle, "ProcessScriptData: iterating script classes...");
     for (const auto &scriptClass : scriptData->classes) {
       for (const auto &prop : scriptClass->properties) {
         // filter out inherited props?
@@ -72,44 +72,43 @@ void __fastcall ModSettings::ProcessScriptData(const ScriptData *scriptData) {
             std::unique_lock _(*mod->classes_lock);
             if (!mod->classes.contains(scriptClass->name)) {
               // mod->classes[scriptClass->name] = ModClass(scriptClass->name, ToClass(scriptClass->name), &mod);
-              mod->classes[scriptClass->name] = new ModClass {
-                .name = scriptClass->name,
-                .type = ToClass(scriptClass->name),
-                .mod = mod
-              };
+              mod->classes[scriptClass->name] =
+                  new ModClass{.name = scriptClass->name, .type = ToClass(scriptClass->name), .mod = mod};
             }
             auto modClass = mod->classes[scriptClass->name];
 
             auto categoryName = prop->ReadProperty("ModSettings.category");
             if (!modClass->categories.contains(categoryName)) {
-              modClass->categories[categoryName] = new ModCategory {
-                .name = categoryName,
-                .order = prop->ReadProperty<uint32_t>("ModSettings.category.order"),
-                .modClass = modClass
-              };
+              modClass->categories[categoryName] =
+                  new ModCategory{.name = categoryName,
+                                  .order = prop->ReadProperty<uint32_t>("ModSettings.category.order"),
+                                  .modClass = modClass};
             }
             auto category = modClass->categories[categoryName];
 
-            auto variable = new ModVariable {
-              .name = prop->name,
-              .type = CRTTISystem::Get()->GetType(prop->type->name),
-              .configVarType = CRTTISystem::Get()->GetClass(ToConfigVar(prop->type->name)),
-              .dependency = *prop->ReadDependency(scriptClass->name),
-              .category = category,
-              .implicitOrder = (uint32_t)category->variables.size()
-            };
-            
+            auto variable =
+                new ModVariable{.name = prop->name,
+                                .type = CRTTISystem::Get()->GetType(prop->type->name),
+                                .configVarType = CRTTISystem::Get()->GetClass(ToConfigVar(prop->type->name)),
+                                .dependency = *prop->ReadDependency(scriptClass->name),
+                                .category = category,
+                                .implicitOrder = (uint32_t)category->variables.size()};
+
             if (variable->SetRuntimeVariable(prop)) {
               category->variables[prop->name] = variable;
               modClass->SetDefaultValue(variable->name, variable->runtimeVar->GetAcceptedValue());
               sdk->logger->InfoF(pluginHandle, "Loaded %s.%s", modClass->name.ToString(), variable->name.ToString());
             } else {
-              sdk->logger->WarnF(pluginHandle, "%s.%s: type '%s' is not supported and was ignored", modClass->name.ToString(), prop->name.ToString(), prop->type->name.ToString());
+              sdk->logger->WarnF(pluginHandle, "%s.%s: type '%s' is not supported and was ignored",
+                                 modClass->name.ToString(), prop->name.ToString(), prop->type->name.ToString());
             }
           }
         }
       }
     }
+    sdk->logger->Info(pluginHandle, "ProcessScriptData: script classes done");
+    sdk->logger->InfoF(pluginHandle, "ProcessScriptData: processing %u queued variables...",
+                       (uint32_t)queuedVariables.size());
     std::shared_lock _(queuedVariables_lock);
     for (const auto &var : queuedVariables) {
       CNamePool::Add(var->modName);
@@ -119,44 +118,39 @@ void __fastcall ModSettings::ProcessScriptData(const ScriptData *scriptData) {
       auto mod = self->mods[var->modName];
 
       auto modClassName = CNamePool::Add(var->className);
-      std::shared_lock _(*mod->classes_lock);
-      if (!mod->classes.contains(modClassName)) {
-        std::unique_lock _(*mod->classes_lock);
-        mod->classes[modClassName] = new ModClass {
-          .name = modClassName,
-          .mod = mod
-        };
+      {
+        std::unique_lock classes_lock(*mod->classes_lock);
+        if (!mod->classes.contains(modClassName)) {
+          mod->classes[modClassName] = new ModClass{.name = modClassName, .mod = mod};
+        }
       }
       auto &modClass = mod->classes[modClassName];
 
       auto categoryName = CNamePool::Add(var->categoryName);
       if (!modClass->categories.contains(categoryName)) {
-        modClass->categories[categoryName] = new ModCategory {
-          .name = categoryName,
-          .modClass = modClass
-        };
+        modClass->categories[categoryName] = new ModCategory{.name = categoryName, .modClass = modClass};
       }
       auto category = modClass->categories[categoryName];
 
       auto variableName = CNamePool::Add(var->propertyName);
-      auto variable = new ModVariable {
-        .name = variableName,
-        .type = CRTTISystem::Get()->GetType(var->type),
-        .configVarType = CRTTISystem::Get()->GetClass(ToConfigVar(var->type)),
-        .dependency = var->dependency,
-        .category = category,
-        .implicitOrder = (uint32_t)category->variables.size()
-      };
+      auto variable = new ModVariable{.name = variableName,
+                                      .type = CRTTISystem::Get()->GetType(var->type),
+                                      .configVarType = CRTTISystem::Get()->GetClass(ToConfigVar(var->type)),
+                                      .dependency = var->dependency,
+                                      .category = category,
+                                      .implicitOrder = (uint32_t)category->variables.size()};
 
       if (variable->CreateRuntimeVariable(*var)) {
         category->variables[variableName] = variable;
         modClass->RegisterCallback(var->callback);
-        (*var->callback)(var->categoryName, var->propertyName, *(ModVariableType*)variable->runtimeVar->GetAcceptedValue());
+        (*var->callback)(var->categoryName, var->propertyName,
+                         *(ModVariableType *)variable->runtimeVar->GetAcceptedValue());
         sdk->logger->InfoF(pluginHandle, "Loaded '%s'.%s", var->modName, var->propertyName);
       } else {
         sdk->logger->ErrorF(pluginHandle, "Could not create runtime variable for {}", var->propertyName);
       }
     }
+    sdk->logger->Info(pluginHandle, "ProcessScriptData: resolving dependencies...");
     // resolve dependencies
     for (auto &[_, mod] : self->mods) {
       std::shared_lock _(*mod->classes_lock);
@@ -168,8 +162,8 @@ void __fastcall ModSettings::ProcessScriptData(const ScriptData *scriptData) {
                 auto &depClass = mod->classes[variable->dependency.className];
                 for (auto &[_, depCategory] : depClass->categories) {
                   if (depCategory->variables.contains(variable->dependency.propertyName)) {
-                      variable->dependency.variable = depCategory->variables[variable->dependency.propertyName];
-                  } 
+                    variable->dependency.variable = depCategory->variables[variable->dependency.propertyName];
+                  }
                 }
               }
             }
@@ -177,6 +171,7 @@ void __fastcall ModSettings::ProcessScriptData(const ScriptData *scriptData) {
         }
       }
     }
+    sdk->logger->Info(pluginHandle, "ProcessScriptData: complete");
   }
 }
 
@@ -233,10 +228,8 @@ DynArray<CName> ModSettings::GetMods() {
     names.push_back(itr->first);
   }
 
-  sort(names.begin(), names.end(), [=](CName& a, CName& b)
-  {
-    return std::string(a.ToString()) < std::string(b.ToString());
-  });
+  sort(names.begin(), names.end(),
+       [=](CName &a, CName &b) { return std::string(a.ToString()) < std::string(b.ToString()); });
 
   for (auto const &modName : names) {
     array.EmplaceBack(modName);
@@ -246,15 +239,16 @@ DynArray<CName> ModSettings::GetMods() {
 
 DynArray<CName> ModSettings::GetCategories(CName modName) {
   auto array = DynArray<CName>(new Memory::DefaultAllocator);
-  std::vector<std::pair<CName, ModCategory*>> modCategories;
+  std::vector<std::pair<CName, ModCategory *>> modCategories;
   for (auto const &[modClassName, modClass] : modSettings.mods[modName]->classes) {
-    for (auto itr = modClass->categories.begin(); itr != modClass->categories.end(); ++itr ) {
-      modCategories.push_back(*itr); 
+    for (auto itr = modClass->categories.begin(); itr != modClass->categories.end(); ++itr) {
+      modCategories.push_back(*itr);
     }
   }
-  sort(modCategories.begin(), modCategories.end(), [=](std::pair<CName, ModCategory*>& a, std::pair<CName, ModCategory*>& b) {
-      return a.second->order < b.second->order;
-  });
+  sort(modCategories.begin(), modCategories.end(),
+       [=](std::pair<CName, ModCategory *> &a, std::pair<CName, ModCategory *> &b) {
+         return a.second->order < b.second->order;
+       });
   for (auto const &[categoryName, category] : modCategories) {
     if (categoryName != "None" && !category->variables.empty()) {
       auto position = std::find(array.begin(), array.end(), categoryName);
@@ -268,7 +262,7 @@ DynArray<CName> ModSettings::GetCategories(CName modName) {
 DynArray<Handle<IScriptable>> ModSettings::GetVars(CName modName, CName categoryName) {
   auto array = DynArray<Handle<IScriptable>>(new Memory::DefaultAllocator);
   if (modSettings.mods.contains(modName)) {
-    std::vector<ModVariable*> variables;
+    std::vector<ModVariable *> variables;
     for (auto &[modClassName, modClass] : modSettings.mods[modName]->classes) {
       if (modClass->categories.contains(categoryName)) {
         for (auto const &[variableName, variable] : modClass->categories[categoryName]->variables) {
@@ -278,9 +272,8 @@ DynArray<Handle<IScriptable>> ModSettings::GetVars(CName modName, CName category
         }
       }
     }
-    std::sort(variables.begin(), variables.end(), [=](ModVariable*& a, ModVariable*& b) {
-      return a->GetOrder() < b->GetOrder();
-    });
+    std::sort(variables.begin(), variables.end(),
+              [=](ModVariable *&a, ModVariable *&b) { return a->GetOrder() < b->GetOrder(); });
     for (auto const variable : variables) {
       auto configVar = variable->ToConfigVar();
       if (configVar) {
@@ -293,7 +286,7 @@ DynArray<Handle<IScriptable>> ModSettings::GetVars(CName modName, CName category
 
 uint32_t applyOverridesCallNumber = 0;
 
-void ModSettings::AddOverrides(Manager* manager) {
+void ModSettings::AddOverrides(Manager *manager) {
   gameinputManager = manager;
   for (const auto &[modName, mod] : modSettings.mods) {
     std::unique_lock _(*mod->classes_lock);
@@ -302,9 +295,10 @@ void ModSettings::AddOverrides(Manager* manager) {
         for (const auto &[variableName, variable] : category->variables) {
           if (variable->type->GetName() == "EInputKey") {
             auto name = variable->name.ToString();
-            auto key = *(EInputKey*)variable->runtimeVar->GetAcceptedValue();
+            auto key = *(EInputKey *)variable->runtimeVar->GetAcceptedValue();
             if (manager->Override(name, (uint16_t)key, applyOverridesCallNumber) == Manager::OverrideStatus::NotFound) {
-              sdk->logger->WarnF(pluginHandle, "overridableUI \"%s\" not found (%s, %s)", name, modName.ToString(), className.ToString());
+              sdk->logger->WarnF(pluginHandle, "overridableUI \"%s\" not found (%s, %s)", name, modName.ToString(),
+                                 className.ToString());
             }
           }
         }
@@ -348,7 +342,7 @@ bool ModSettings::GetSettingString(CName className, CName propertyName, CString 
   }
 }
 
-void ModSettings::ReadValueFromFile(ScriptProperty *prop, ScriptInstance pointer) {
+void ModSettings::ReadValueFromFile(ScriptProperty *prop, void *pointer) {
   CString settingFromFile;
   if (ModSettings::GetSettingString(prop->parent->name, prop->name, &settingFromFile)) {
     prop->FromString(pointer, settingFromFile);
@@ -413,7 +407,7 @@ void ModSettings::NotifyListeners() {
         //   // args.emplace_back(RED4ext::CRTTISystem::Get()->GetType("Bool"), &changesRequested);
         //   RED4ext::ExecuteFunction(instance, func, nullptr, changesRequested);
         // } else {
-          RED4ext::ExecuteFunction(instance, func, nullptr);
+        RED4ext::ExecuteFunction(instance, func, nullptr);
         // }
       }
     } else {
@@ -430,7 +424,7 @@ void ModSettings::NotifyListenersRequested(CName aGroupPath, CName aVarName) {
     if (listener) {
       auto instance = listener.Lock();
       auto func = instance->GetType()->GetFunction("OnModVariableChangeRequested");
-    
+
       if (func) {
         // RED4ext::StackArgs_t args;
         // RED4ext::CName groupPath = aGroupPath;
@@ -453,7 +447,7 @@ void ModSettings::NotifyListenersAccepted(CName aGroupPath, CName aVarName) {
     if (listener) {
       auto instance = listener.Lock();
       auto func = instance->GetType()->GetFunction("OnModVariableChangeAccepted");
-    
+
       if (func) {
         // RED4ext::StackArgs_t args;
         // RED4ext::CName groupPath = aGroupPath;

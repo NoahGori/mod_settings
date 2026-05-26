@@ -1,41 +1,41 @@
-#include "RuntimeVariable.hpp"
+#include "Variable.hpp"
+#include "ModConfigVar.hpp"
 #include "RED4ext/CName.hpp"
 #include "RED4ext/CNamePool.hpp"
 #include "RED4ext/Scripting/IScriptable.hpp"
+#include "RuntimeVariable.hpp"
 #include "ScriptDefinitions/ScriptDefinitions.hpp"
 #include "ScriptDefinitions/ScriptProperty.hpp"
-#include "Variable.hpp"
-#include "ModConfigVar.hpp"
 #include <algorithm>
 
 namespace ModSettings {
 
 const CName ToConfigVar(CName typeName) noexcept {
   switch (typeName) {
-    case CName("Bool"):
-      return "ModConfigVarBool";
-    case CName("Int32"):
-      return "ModConfigVarInt32";
-    case CName("Float"):
-      return "ModConfigVarFloat";
-    case CName("EInputKey"):
-      return "ModConfigVarKeyBinding";
-    // case CName("CName"):
-    //   return "ModConfigVarName";
-    default: 
-      return "ModConfigVarEnum";
+  case CName("Bool"):
+    return "ModConfigVarBool";
+  case CName("Int32"):
+    return "ModConfigVarInt32";
+  case CName("Float"):
+    return "ModConfigVarFloat";
+  case CName("EInputKey"):
+    return "ModConfigVarKeyBinding";
+  // case CName("CName"):
+  //   return "ModConfigVarName";
+  default:
+    return "ModConfigVarEnum";
   }
 }
 
 // Variable
 
-ModVariable* ModCategory::AddVariable(ModVariable *variable) {
+ModVariable *ModCategory::AddVariable(ModVariable *variable) {
   this->variables[variable->name] = variable;
   variable->category = this;
   return this->variables[variable->name];
 }
 
-ModVariable* ModClass::AddVariable(ModVariable *variable, ModCategory *category) {
+ModVariable *ModClass::AddVariable(ModVariable *variable, ModCategory *category) {
   if (!this->categories.contains(category->name)) {
     category->modClass = this;
     this->categories[category->name] = category;
@@ -43,7 +43,7 @@ ModVariable* ModClass::AddVariable(ModVariable *variable, ModCategory *category)
   return this->categories[category->name]->AddVariable(variable);
 }
 
-ModVariable* Mod::AddVariable(ModVariable *variable, ModCategory *category, ModClass *modClass) {
+ModVariable *Mod::AddVariable(ModVariable *variable, ModCategory *category, ModClass *modClass) {
   std::unique_lock _(*this->classes_lock);
   if (!this->classes.contains(modClass->name)) {
     modClass->mod = this;
@@ -70,13 +70,13 @@ bool ModVariable::IsEnabled() const {
   return true;
 }
 
-bool ModVariable::IsInputEqualToString(const CString& other) const {
+bool ModVariable::IsInputEqualToString(const CString &other) const {
   CString str;
   this->type->ToString(this->runtimeVar->GetRequestedValue(), str);
   return str == other;
 }
 
-void ModVariable::Write(std::ofstream& stream) const {
+void ModVariable::Write(std::ofstream &stream) const {
   this->runtimeVar->AcceptChange();
   if (this->runtimeVar->WasModifiedSinceLastSave()) {
     this->runtimeVar->MarkAsSaved();
@@ -87,38 +87,38 @@ void ModVariable::Write(std::ofstream& stream) const {
   stream << this->runtimeVar->name.ToString() << " = " << str.c_str() << "\n";
 }
 
-bool ModVariable::SetRuntimeVariable(ScriptProperty * prop) {
+bool ModVariable::SetRuntimeVariable(ScriptProperty *prop) {
   if (!this->type) {
     return false;
   }
   switch (this->type->GetName()) {
-    case CName("Bool"):
-      this->runtimeVar = new RuntimeVariableBool(prop);
+  case CName("Bool"):
+    this->runtimeVar = new RuntimeVariableBool(prop);
+    return true;
+  case CName("EInputKey"):
+    this->runtimeVar = new RuntimeVariableKeyBinding(prop);
+    return true;
+  // not supported in the UI yet
+  case CName("CName"):
+    this->runtimeVar = new RuntimeVariableName(prop);
+    return true;
+  case CName("Int32"):
+    this->runtimeVar = new RuntimeVariableRange<int32_t>(prop);
+    return true;
+  case CName("Uint32"):
+    this->runtimeVar = new RuntimeVariableRange<uint32_t>(prop);
+    return true;
+  case CName("Float"):
+    this->runtimeVar = new RuntimeVariableRange<float>(prop);
+    return true;
+  default:
+    if (this->type->GetType() == RED4ext::ERTTIType::Enum) {
+      this->runtimeVar = new RuntimeVariableEnum(prop);
       return true;
-    case CName("EInputKey"):
-      this->runtimeVar = new RuntimeVariableKeyBinding(prop);
-      return true;
-    // not supported in the UI yet
-    case CName("CName"):
-      this->runtimeVar = new RuntimeVariableName(prop);
-      return true;
-    case CName("Int32"):
-      this->runtimeVar = new RuntimeVariableRange<int32_t>(prop);
-      return true;
-    case CName("Uint32"):
-      this->runtimeVar = new RuntimeVariableRange<uint32_t>(prop);
-      return true;
-    case CName("Float"):
-      this->runtimeVar = new RuntimeVariableRange<float>(prop);
-      return true;
-    default: 
-      if(this->type->GetType() == RED4ext::ERTTIType::Enum) {
-        this->runtimeVar = new RuntimeVariableEnum(prop);
-        return true;
-      } else {
-        this->runtimeVar = nullptr;
-        return false;
-      }
+    } else {
+      this->runtimeVar = nullptr;
+      return false;
+    }
   }
 }
 
@@ -127,40 +127,52 @@ bool ModVariable::CreateRuntimeVariable(const Variable &var) {
   // CEnum * keyCls = rtti->GetEnumByScriptName("EInputKey");
   // CString keyString;
   switch (var.type) {
-    case CName("Bool"):
-      this->runtimeVar = new RuntimeVariableBool(var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description), var.order, var.defaultValue.b);
-      return true;
-    case CName("EInputKey"):
-      // keyCls->ToString((ScriptInstance)var.defaultValue.u32, keyString);
-      this->runtimeVar = new RuntimeVariableKeyBinding(var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description), var.order, (EInputKey)var.defaultValue.u32); //CNamePool::Add(keyString));
-      return true;
-    // not supported in the UI yet
-    case CName("CName"):
-      this->runtimeVar = new RuntimeVariableName(var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description), var.order, var.defaultValue.cname);
-      return true;
-    case CName("Int32"):
-      this->runtimeVar = new RuntimeVariableRange<int32_t>(var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description), var.order, var.defaultValue.i32, var.stepValue.i32, var.minValue.i32, var.maxValue.i32);
-      return true;
-    case CName("Uint32"):
-      this->runtimeVar = new RuntimeVariableRange<uint32_t>(var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description), var.order, var.defaultValue.u32, var.stepValue.u32, var.minValue.u32, var.maxValue.u32);
-      return true;
-    case CName("Float"):
-      this->runtimeVar = new RuntimeVariableRange<float>(var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description), var.order, var.defaultValue.f32, var.stepValue.f32, var.minValue.f32, var.maxValue.f32);
-      return true;
-    default: 
-      // if(this->type->GetType() == RED4ext::ERTTIType::Enum) {
-      //   this->runtimeVar = new RuntimeVariableEnum(var.modName, var.className, var.propertyName, var.displayName, var.description, var.order, *var.defaultValue);
-      //   return true;
-      // } else {
-        this->runtimeVar = nullptr;
-        return false;
-      // }
+  case CName("Bool"):
+    this->runtimeVar =
+        new RuntimeVariableBool(var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName),
+                                CNamePool::Add(var.description), var.order, var.defaultValue.b);
+    return true;
+  case CName("EInputKey"):
+    // keyCls->ToString((ScriptInstance)var.defaultValue.u32, keyString);
+    this->runtimeVar = new RuntimeVariableKeyBinding(
+        var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description),
+        var.order, (EInputKey)var.defaultValue.u32); // CNamePool::Add(keyString));
+    return true;
+  // not supported in the UI yet
+  case CName("CName"):
+    this->runtimeVar =
+        new RuntimeVariableName(var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName),
+                                CNamePool::Add(var.description), var.order, var.defaultValue.cname);
+    return true;
+  case CName("Int32"):
+    this->runtimeVar = new RuntimeVariableRange<int32_t>(
+        var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description),
+        var.order, var.defaultValue.i32, var.stepValue.i32, var.minValue.i32, var.maxValue.i32);
+    return true;
+  case CName("Uint32"):
+    this->runtimeVar = new RuntimeVariableRange<uint32_t>(
+        var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description),
+        var.order, var.defaultValue.u32, var.stepValue.u32, var.minValue.u32, var.maxValue.u32);
+    return true;
+  case CName("Float"):
+    this->runtimeVar = new RuntimeVariableRange<float>(
+        var.modName, var.className, var.propertyName, CNamePool::Add(var.displayName), CNamePool::Add(var.description),
+        var.order, var.defaultValue.f32, var.stepValue.f32, var.minValue.f32, var.maxValue.f32);
+    return true;
+  default:
+    // if(this->type->GetType() == RED4ext::ERTTIType::Enum) {
+    //   this->runtimeVar = new RuntimeVariableEnum(var.modName, var.className, var.propertyName, var.displayName,
+    //   var.description, var.order, *var.defaultValue); return true;
+    // } else {
+    this->runtimeVar = nullptr;
+    return false;
+    // }
   }
 }
 
-IModConfigVar * ModVariable::ToConfigVar() const {
+IModConfigVar *ModVariable::ToConfigVar() const {
   if (this->runtimeVar) {
-    auto configVar = this->configVarType->CreateInstance<IModConfigVar*>();
+    auto configVar = this->configVarType->CreateInstance<IModConfigVar *>();
     configVar->SetRuntime(this->runtimeVar);
     return configVar;
   } else {
@@ -175,11 +187,11 @@ IModConfigVar * ModVariable::ToConfigVar() const {
 //   this->type = ToClass(name);
 // }
 
-  // ModClass::ModClass(CName name, CClass* type, Mod* mod) : ModClass() {
-  //   this->name = name;
-  //   this->type = type;
-  //   this->mod = mod;
-  // }
+// ModClass::ModClass(CName name, CClass* type, Mod* mod) : ModClass() {
+//   this->name = name;
+//   this->type = type;
+//   this->mod = mod;
+// }
 
 void ModClass::RegisterListener(const Handle<IScriptable> &listener) {
   // for (auto it = this->listeners.begin(); it != this->listeners.end(); ++it) {
@@ -212,15 +224,15 @@ void ModClass::RegisterCallback(std::shared_ptr<runtime_class_callback_t> &callb
   }
 }
 
-void ModClass::SetDefaultValue(CName propertyName, ScriptInstance* value) const {
+void ModClass::SetDefaultValue(CName propertyName, void *value) const {
   if (this->type) {
-      for (auto i = 0; i < this->type->defaults.keys.size; i++) {
-        if (this->type->defaults.keys[i] == propertyName) {
-          // sdk->logger->InfoF(pluginHandle, "Loaded %s.%s", this->name.ToString(), propertyName.ToString());
-          auto propType = this->type->defaults.values[i]->GetType();
-          this->type->defaults.values[i]->Fill(propType, value);
-        }
+    for (auto i = 0; i < this->type->defaults.keys.Size(); i++) {
+      if (this->type->defaults.keys[i] == propertyName) {
+        // sdk->logger->InfoF(pluginHandle, "Loaded %s.%s", this->name.ToString(), propertyName.ToString());
+        auto propType = this->type->defaults.values[i]->GetType();
+        this->type->defaults.values[i]->Fill(propType, value);
       }
+    }
   }
 }
 
@@ -248,11 +260,11 @@ void ModClass::NotifyListeners() const {
   for (const auto &[categoryName, category] : this->categories) {
     for (const auto &[variableName, variable] : category->variables) {
       auto valuePtr = variable->runtimeVar->GetAcceptedValue();
-      
+
       std::shared_lock _(*this->callbacks_lock);
       for (auto &callback : this->callbacks) {
         if (callback) {
-          (*callback)(categoryName, variableName, *(ModVariableType*)valuePtr);
+          (*callback)(categoryName, variableName, *(ModVariableType *)valuePtr);
         }
       }
     }
@@ -299,12 +311,11 @@ Mod::Mod(CName name) : name(name) {
 //     }
 //   }
 
-
 /*
 
 ModSettingsVariable::ModSettingsVariable() {
-  this->listeners = RED4ext::DynArray<RED4ext::WeakHandle<RED4ext::IScriptable>>(new RED4ext::Memory::DefaultAllocator());
-  this->listeners.Reserve(1000);
+  this->listeners = RED4ext::DynArray<RED4ext::WeakHandle<RED4ext::IScriptable>>(new
+RED4ext::Memory::DefaultAllocator()); this->listeners.Reserve(1000);
 }
 
 // ModSettingsVariable::ModSettingsVariable(ScriptProperty* prop, const CName scriptClass) : ModSettingsVariable() {
@@ -342,13 +353,15 @@ ModSettingsVariable::ModSettingsVariable() {
 //   }
 // }
 
-// ModSettingsVariable::ModSettingsVariable(const CName mod, const CName typeName, const CName className, const CName category) : 
-//     mod(mod), 
-//     type(RED4ext::CRTTISystem::Get()->GetType(typeName)), 
+// ModSettingsVariable::ModSettingsVariable(const CName mod, const CName typeName, const CName className, const CName
+category) :
+//     mod(mod),
+//     type(RED4ext::CRTTISystem::Get()->GetType(typeName)),
 //     configVarType(RED4ext::CRTTISystem::Get()->GetClass(ToConfigVar(typeName))),
 //     className(className),
 //     category(category) {
-//   this->listeners = RED4ext::DynArray<RED4ext::WeakHandle<RED4ext::IScriptable>>(new RED4ext::Memory::DefaultAllocator());
+//   this->listeners = RED4ext::DynArray<RED4ext::WeakHandle<RED4ext::IScriptable>>(new
+RED4ext::Memory::DefaultAllocator());
 //   this->listeners.Reserve(1000);
 // }
 
@@ -376,7 +389,7 @@ void ModSettingsVariable::SetRequestedValues() {
   auto classType = RED4ext::CRTTISystem::Get()->GetClass(className);
   if (classType) {
     auto valuePtr = runtimeVar->GetAcceptedValue();
-    for (auto i = 0; i < classType->defaults.keys.size; i++) {
+    for (auto i = 0; i < classType->defaults.keys.Size(); i++) {
       if (classType->defaults.keys[i] == runtimeVar->name) {
         sdk->logger->InfoF(pluginHandle, "Loaded %s.%s", className.ToString(), runtimeVar->name.ToString());
         auto propType = classType->defaults.values[i]->GetType();
@@ -457,7 +470,7 @@ bool ModVariable::SetRuntimeVariable(ScriptProperty * prop) {
     case CName("Float"):
       this->runtimeVar = new RuntimeVariableRange<float>(prop);
       return true;
-    default: 
+    default:
       if(this->type->GetType() == RED4ext::ERTTIType::Enum) {
         this->runtimeVar = new RuntimeVariableEnum(prop);
         return true;

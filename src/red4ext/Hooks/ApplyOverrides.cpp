@@ -1,41 +1,39 @@
 #include <Hooks/ApplyOverrides.hpp>
-#include <Registrar.hpp>
-#include <RED4ext/HashMap.hpp>
 #include <ModSettings.hpp>
+#include <RED4ext/HashMap.hpp>
+#include <Registrar.hpp>
 
-UserMapping::RawMappingCollection * UserMapping::GetMappingCollection(CName mapName) {
-  static UniRelocFunc<decltype(&UserMapping::GetMappingCollection)> call(3702071356);
+UserMapping::RawMappingCollection *UserMapping::GetMappingCollection(CName mapName) {
+  static UniversalRelocFunc<decltype(&UserMapping::GetMappingCollection)> call(3702071356);
   return call(this, mapName);
 }
 
 void UserMapping::ClearRuntimeDataOnRawMappings() {
-  static UniRelocFunc<decltype(&UserMapping::ClearRuntimeDataOnRawMappings)> call(4196866905);
+  static UniversalRelocFunc<decltype(&UserMapping::ClearRuntimeDataOnRawMappings)> call(4196866905);
   return call(this);
 }
 
-// bool Manager::CheckOverrideConflicts(CName contextName, unsigned short key, DynArray<OverridableMapping> & conflicts) const {
+// bool Manager::CheckOverrideConflicts(CName contextName, unsigned short key, DynArray<OverridableMapping> & conflicts)
+// const {
 //   static UniRelocFunc<decltype(&Manager::CheckOverrideConflicts)> call(1600530764);
 //   return call(this, contextName, key, conflicts);
 // }
 
 Manager::OverrideStatus Manager::Override(
-    // CName contextName, 
-    Overridable overridableUI, 
-    uint16_t inputKey,
-    uint32_t callNumber
-) {
+    // CName contextName,
+    Overridable overridableUI, uint16_t inputKey, uint32_t callNumber) {
   uint32_t status = NotFound;
   // CheckForOverrideConflicts
   this->contextManager->userMapping->ClearRuntimeDataOnRawMappings();
-  for (const auto & action : this->contextManager->actions.values) {
-    for (const auto & mapName : action->data.mapNames) {
+  for (const auto &action : this->contextManager->actions.values) {
+    for (const auto &mapName : action->data.mapNames) {
       auto mappingCollection = this->contextManager->userMapping->GetMappingCollection(mapName);
       // CheckForOverrideConflicts
       if (!mappingCollection || mappingCollection->needs_update == 1)
         continue;
       mappingCollection->needs_update = 1;
       // Override
-      for (auto & mapping : mappingCollection->mappings) {
+      for (auto &mapping : mappingCollection->mappings) {
         if (mapping.overridableUI == overridableUI) {
           if (mapping.key16 != inputKey) {
             mapping.key16 = inputKey;
@@ -57,11 +55,14 @@ Manager::OverrideStatus Manager::Override(
 }
 
 decltype(&ApplyOverrides) ApplyOverrides_Original;
-ModModuleHookHash s_ApplyOverrides_Hook("ApplyOverrides", 1773342692, reinterpret_cast<void*>(&ApplyOverrides), reinterpret_cast<void**>(&ApplyOverrides_Original)); 
+ModModuleHookHash s_ApplyOverrides_Hook("ApplyOverrides", 1773342692, reinterpret_cast<void *>(&ApplyOverrides),
+                                        reinterpret_cast<void **>(&ApplyOverrides_Original));
 
-void ApplyOverrides(Manager * manager) {
+void ApplyOverrides(Manager *manager) {
+  ModSettings::sdk->logger->Info(ModSettings::pluginHandle, "ApplyOverrides: called");
   ModSettings::ModSettings::AddOverrides(manager);
   ApplyOverrides_Original(manager);
+  ModSettings::sdk->logger->Info(ModSettings::pluginHandle, "ApplyOverrides: done");
 }
 
 // REGISTER_HOOK_HASH(bool, 1120015283, Override, ContextManager* cm, CName name, unsigned int ui, unsigned short key) {
@@ -84,8 +85,8 @@ REGISTER_HOOK_HASH(bool, 3298233196, SkipKey, uint32_t key) {
 //   return;
 // }
 
-// REGISTER_HOOK_HASH(uint64_t, 3729004759, ListenForInputCallback, 
-//   WeakHandle<ink::SettingsSelectorControllerKeyBinding> self, 
+// REGISTER_HOOK_HASH(uint64_t, 3729004759, ListenForInputCallback,
+//   WeakHandle<ink::SettingsSelectorControllerKeyBinding> self,
 //   EInputKey key, // EInputKey
 //   uint64_t type, // type
 //   float duration
