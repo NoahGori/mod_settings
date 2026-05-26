@@ -6,12 +6,12 @@
 #include <memory>
 #include <vector>
 
-#include <Windows.h>
 #include <TlHelp32.h>
-//#include <detours.h>
+#include <Windows.h>
+// #include <detours.h>
 
 #include <RED4ext/RED4ext.hpp>
-//#include <spdlog/spdlog.h>
+// #include <spdlog/spdlog.h>
 
 // The upstream RED4ext SDK places Sdk and PluginHandle in RED4ext::v1.
 // Registrar.hpp (from the cpcmake submodule) uses RED4ext::Sdk / RED4ext::PluginHandle
