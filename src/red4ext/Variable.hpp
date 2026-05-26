@@ -2,10 +2,9 @@
 
 #include "IRuntimeVariable.hpp"
 #include "RED4ext/RTTITypes.hpp"
+#include "userRuntimeSettingsVar.hpp"
 #include <ModSettings/ModSettings.hpp>
 #include <RED4ext/Common.hpp>
-#include <RED4ext/Scripting/Natives/userRuntimeSettingsVar.hpp>
-#include <RED4ext/Scripting/Natives/userSettingsVar.hpp>
 #include <functional>
 #include <map>
 

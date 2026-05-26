@@ -1,5 +1,4 @@
 #pragma once
-#include "RED4ext/Scripting/Natives/userSettingsVar.hpp"
 #include "RuntimeVariable.hpp"
 #include "ScriptDefinitions/ScriptDefinitions.hpp"
 #include "Scripting/RTTIClass.hpp"

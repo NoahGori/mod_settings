@@ -4,7 +4,6 @@
 #include "ScriptDefinitions/ScriptProperty.hpp"
 #include <RED4ext/Common.hpp>
 #include <RED4ext/RED4ext.hpp>
-#include <RED4ext/Scripting/Natives/userRuntimeSettingsVar.hpp>
 
 namespace ModSettings {
 
