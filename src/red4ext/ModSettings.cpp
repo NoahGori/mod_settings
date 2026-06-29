@@ -48,7 +48,7 @@ void AddVariable(Variable* variable) {
 void __fastcall ModSettings::ProcessScriptData(const ScriptData *scriptData) {
   auto self = ModSettings::GetInstance();
   if (sdk) {
-    unsigned int classCount = scriptData ? static_cast<unsigned int>(scriptData->classes.size()) : 0;
+    unsigned int classCount = scriptData ? static_cast<unsigned int>(scriptData->classes.size) : 0;
     sdk->logger->InfoF(pluginHandle, "ProcessScriptData called (scriptData=%p, classCount=%u)", scriptData, classCount);
   }
   if (scriptData) {
