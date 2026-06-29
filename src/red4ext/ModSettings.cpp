@@ -47,9 +47,9 @@ void AddVariable(Variable* variable) {
 
 void __fastcall ModSettings::ProcessScriptData(const ScriptData *scriptData) {
   auto self = ModSettings::GetInstance();
-  if (ModSettings::sdk) {
+  if (sdk) {
     unsigned int classCount = scriptData ? static_cast<unsigned int>(scriptData->classes.size()) : 0;
-    ModSettings::sdk->logger->InfoF(ModSettings::pluginHandle, "ProcessScriptData called (scriptData=%p, classCount=%u)", scriptData, classCount);
+    sdk->logger->InfoF(pluginHandle, "ProcessScriptData called (scriptData=%p, classCount=%u)", scriptData, classCount);
   }
   if (scriptData) {
     ModSettings::ReadFromFile();
@@ -299,8 +299,8 @@ uint32_t applyOverridesCallNumber = 0;
 
 void ModSettings::AddOverrides(Manager* manager) {
   gameinputManager = manager;
-  if (ModSettings::sdk) {
-    ModSettings::sdk->logger->InfoF(ModSettings::pluginHandle, "AddOverrides called (manager=%p, mods=%u)", manager, static_cast<unsigned int>(modSettings.mods.size()));
+  if (sdk) {
+    sdk->logger->InfoF(pluginHandle, "AddOverrides called (manager=%p, mods=%u)", manager, static_cast<unsigned int>(modSettings.mods.size()));
   }
   for (const auto &[modName, mod] : modSettings.mods) {
     std::unique_lock _(*mod->classes_lock);
