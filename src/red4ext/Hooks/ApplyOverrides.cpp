@@ -60,7 +60,13 @@ decltype(&ApplyOverrides) ApplyOverrides_Original;
 ModModuleHookHash s_ApplyOverrides_Hook("ApplyOverrides", 1773342692, reinterpret_cast<void*>(&ApplyOverrides), reinterpret_cast<void**>(&ApplyOverrides_Original)); 
 
 void ApplyOverrides(Manager * manager) {
+  if (ModSettings::sdk) {
+    ModSettings::sdk->logger->InfoF(ModSettings::pluginHandle, "Hook: ApplyOverrides called (manager=%p)", manager);
+  }
   ModSettings::ModSettings::AddOverrides(manager);
+  if (ModSettings::sdk) {
+    ModSettings::sdk->logger->InfoF(ModSettings::pluginHandle, "Hook: ApplyOverrides finished (manager=%p)", manager);
+  }
   ApplyOverrides_Original(manager);
 }
 
@@ -69,7 +75,12 @@ void ApplyOverrides(Manager * manager) {
 // }
 
 REGISTER_HOOK_HASH(bool, 3298233196, SkipKey, uint32_t key) {
-  return SkipKey_Original(key) && !((key - (uint32_t)EInputKey::IK_Pad_First) <= 0x13);
+  bool orig = SkipKey_Original(key);
+  bool result = orig && !((key - (uint32_t)EInputKey::IK_Pad_First) <= 0x13);
+  if (ModSettings::sdk) {
+    ModSettings::sdk->logger->InfoF(ModSettings::pluginHandle, "Hook: SkipKey called key=%u orig=%d result=%d", key, (int)orig, (int)result);
+  }
+  return result;
 }
 
 // #include <RED4ext/Scripting/Natives/Generated/ink/SettingsSelectorControllerKeyBinding.hpp>
