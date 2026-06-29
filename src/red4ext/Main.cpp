@@ -68,6 +68,7 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(RED4ext::PluginHandle aHandle, RED4ext::
     ArchiveXL::RegisterArchive(aHandle, "ModSettings.archive");
     aSdk->logger->Info(aHandle, "Archive registered successfully, Getting instance...");
     ModModuleFactory::GetInstance().Load(aSdk, aHandle);
+    aSdk->logger->Info(aHandle, "Got instance, Reached end of main...");
     // Engine::RTTIRegistrar::RegisterPending();
 
     break;
