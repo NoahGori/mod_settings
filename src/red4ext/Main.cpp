@@ -58,12 +58,15 @@ RED4EXT_C_EXPORT bool RED4EXT_CALL Main(RED4ext::PluginHandle aHandle, RED4ext::
       aSdk->logger->Info(aHandle, "Deleting old xl");
       std::filesystem::remove_all(XL);
     }
+    aSdk->logger->Info(aHandle, "No old files found, Discovering register...");
 
     Red::TypeInfoRegistrar::RegisterDiscovered();
 
     aSdk->scripts->Add(aHandle, L"packed.reds");
     aSdk->scripts->Add(aHandle, L"module.reds");
+    aSdk->logger->Info(aHandle, "Added handles successfully, Registering Archive...");
     ArchiveXL::RegisterArchive(aHandle, "ModSettings.archive");
+    aSdk->logger->Info(aHandle, "Archive registered successfully, Getting instance...");
     ModModuleFactory::GetInstance().Load(aSdk, aHandle);
     // Engine::RTTIRegistrar::RegisterPending();
 
